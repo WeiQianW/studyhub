@@ -126,7 +126,7 @@ pub fn render() {
     let best_pct = best.map(|(s, n)| round(s / n * 100.0)).unwrap_or(0.0);
     let best_txt = best.map(|(s, n)| format!("{} / {}", num_str(s), num_str(n))).unwrap_or_else(|| "—".into());
     let h = format!(
-        "\n  <div class=\"hero\">\n    <div class=\"card intro\">\n      <div class=\"eyebrow\">{eb}</div>\n      <h1 style=\"margin:8px 0 10px\">{h1}</h1>\n      <p class=\"muted\">{intro}</p>\n      <div style=\"display:flex;gap:10px;flex-wrap:wrap;margin-top:14px\">\n        <button class=\"btn\" data-go=\"learn\">Continue notes</button>\n        <button class=\"btn ghost\" data-go=\"quiz\">Take a quiz</button>\n        <button class=\"btn ghost\" data-go=\"calc\">Calculators</button>\n      </div>\n    </div>\n    <div class=\"stats\">\n      {stats}\n      <div class=\"card stat\">{r1}<div><div class=\"lbl\">{l1}</div><div class=\"big\">{k} / {cn}</div></div></div>\n      <div class=\"card stat\">{r2}<div><div class=\"lbl\">{l2}</div><div class=\"big\">{bt}</div></div></div>\n    </div>\n  </div>\n  {progs}",
+        "\n  <div class=\"hero\">\n    <div class=\"card intro\">\n      <div class=\"eyebrow\">{eb}</div>\n      <h1 style=\"margin:8px 0 10px\">{h1}</h1>\n      <p class=\"muted\">{intro}</p>\n      <div style=\"display:flex;gap:10px;flex-wrap:wrap;margin-top:14px\">\n        <button class=\"btn\" data-go=\"learn\">Continue notes</button>\n        <button class=\"btn ghost\" data-go=\"quiz\">Take a quiz</button>\n        <button class=\"btn ghost\" data-go=\"calc\">Calculators</button>{dl}\n      </div>\n    </div>\n    <div class=\"stats\">\n      {stats}\n      <div class=\"card stat\">{r1}<div><div class=\"lbl\">{l1}</div><div class=\"big\">{k} / {cn}</div></div></div>\n      <div class=\"card stat\">{r2}<div><div class=\"lbl\">{l2}</div><div class=\"big\">{bt}</div></div></div>\n    </div>\n  </div>\n  {progs}",
         eb = l("Mechatronics learning hub", "机电一体化学习中心"),
         h1 = l("Study every note in one place", "所有笔记，一处学习"),
         intro = intro,
@@ -138,7 +138,8 @@ pub fn render() {
         r2 = ring(best_pct, "Quiz"),
         l2 = l("Best quiz score", "最佳测验成绩"),
         bt = best_txt,
-        progs = progs
+        progs = progs,
+        dl = if is_desktop() { "" } else { "\n        <a class=\"btn ghost\" id=\"dlApp\" href=\"https://weiqianw.github.io/studyhub/download/\" target=\"_blank\" rel=\"noopener\">Download Windows app</a>" }
     );
     set_html(&app(), &h);
 }
@@ -155,4 +156,9 @@ pub fn on_click(t: &web_sys::Element) -> bool {
         return true;
     }
     false
+}
+
+/// True inside the Windows app (it sets `window.SH_DESKTOP`), so the download button is hidden there.
+fn is_desktop() -> bool {
+    js_sys::Reflect::get(&win(), &wasm_bindgen::JsValue::from_str("SH_DESKTOP")).map(|v| v.is_truthy()).unwrap_or(false)
 }

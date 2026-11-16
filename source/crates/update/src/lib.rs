@@ -20,6 +20,9 @@ pub struct Manifest {
     pub app: String,
     pub version: String,
     pub files: Vec<FileEntry>,
+    /// Latest version of the Windows app itself (the .exe), for the "new app available" notice.
+    #[serde(default)]
+    pub desktop: Option<String>,
 }
 
 pub type Bundle = &'static [(&'static str, &'static [u8])];
@@ -92,11 +95,16 @@ impl Store {
 
     /// Check `base` (ending in '/') for a newer version and install it. Returns the new version.
     pub fn check(&self, base: &str, allow_http: bool) -> Result<Option<String>, String> {
+        self.check_full(base, allow_http).map(|r| r.0)
+    }
+    /// Like `check`, and also returns the newest desktop-app version named in the manifest.
+    pub fn check_full(&self, base: &str, allow_http: bool) -> Result<(Option<String>, Option<String>), String> {
         let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(60))).https_only(!allow_http).build().into();
         let raw = get(&agent, &format!("{}manifest.json", base))?;
         let m: Manifest = serde_json::from_slice(&raw).map_err(|e| format!("manifest: {}", e))?;
+        let desk = m.desktop.clone();
         if m.app != "studyhub" || ver_key(&m.version) <= ver_key(&self.active_version()) {
-            return Ok(None);
+            return Ok((None, desk));
         }
         if m.files.iter().all(|f| f.path != "index.html") || m.files.iter().any(|f| !safe_rel(&f.path) || f.size > MAX_FILE || f.path == "manifest.json") {
             return Err("manifest rejected".into());
@@ -133,7 +141,7 @@ impl Store {
             return Err(e.to_string());
         }
         let _ = fs::remove_dir_all(&old);
-        Ok(Some(m.version))
+        Ok((Some(m.version), desk))
     }
 }
 

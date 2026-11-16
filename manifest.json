@@ -1,11 +1,12 @@
 {
  "app": "studyhub",
- "version": "2026.11.16-1",
+ "version": "2026.11.16-2",
+ "desktop": "2.0.0",
  "files": [
   {
    "path": "content.json",
-   "sha256": "b8e8b7a710df5eb9b51fc5fb26c08239bc1bee3c6cb9859cd9d064c1521ac57e",
-   "size": 6258511
+   "sha256": "8613d93c0f0bf1d1940f215ad48dea3dc4fa50f2a2d20d2c9ddf18dadf62c45a",
+   "size": 6258558
   },
   {
    "path": "index.html",
@@ -19,8 +20,8 @@
   },
   {
    "path": "pkg/studyhub_web_bg.wasm",
-   "sha256": "bd3ac4a8dc9aca3bc75be072d3c26ac4d86dce3b6c807456a73dcd98b52cf8a0",
-   "size": 801639
+   "sha256": "76c399d2bc5cecdfdd2c741eb1c7f2157f3488e9048b51b5cf802a99805aa9c0",
+   "size": 802055
   }
  ]
 }

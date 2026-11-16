@@ -56,6 +56,22 @@ fn log(msg: &str) {
 #[derive(Debug)]
 enum UserEvent {
     Updated(String),
+    NewApp(String),
+}
+
+const DOWNLOAD_PAGE: &str = "https://weiqianw.github.io/studyhub/download/";
+const APP_BANNER_JS: &str = r#"(function(v){if(document.getElementById('shApp'))return;var b=document.createElement('div');b.id='shApp';b.style.cssText='position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:99999;background:var(--card,#222);color:var(--fg,#fff);border:1px solid var(--bolt,#3aa0ff);border-radius:12px;padding:10px 14px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:14px system-ui;display:flex;gap:12px;align-items:center';var s=document.createElement('span');s.textContent='New app version '+v+' available · 有新版本应用';var r=document.createElement('button');r.textContent='Download · 下载';r.className='btn sm';r.onclick=function(){window.ipc.postMessage('open-download')};var x=document.createElement('button');x.textContent='✕';x.className='chipbtn';x.onclick=function(){b.remove()};b.appendChild(s);b.appendChild(r);b.appendChild(x);document.body.appendChild(b);})"#;
+
+fn open_in_browser(url: &str) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).creation_flags(0x08000000).spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    }
 }
 
 const BANNER_JS: &str = r#"(function(v){var b=document.getElementById('shUpd');if(!b){b=document.createElement('div');b.id='shUpd';b.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:var(--card,#222);color:var(--fg,#fff);border:1px solid var(--accent,#f80);border-radius:12px;padding:10px 14px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:14px system-ui;display:flex;gap:12px;align-items:center';document.body.appendChild(b);}b.textContent='';var s=document.createElement('span');s.textContent='Update '+v+' downloaded · 新版本已下载';var r=document.createElement('button');r.textContent='Reload · 重新载入';r.className='btn sm';r.onclick=function(){location.reload()};b.appendChild(s);b.appendChild(r);})"#;
@@ -65,12 +81,18 @@ fn main() {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy = event_loop.create_proxy();
     std::thread::spawn(move || loop {
-        match store().check(&update_url(), false) {
-            Ok(Some(v)) => {
-                log(&format!("installed {}", v));
-                let _ = proxy.send_event(UserEvent::Updated(v));
+        match store().check_full(&update_url(), false) {
+            Ok((installed, desk)) => {
+                if let Some(v) = installed {
+                    log(&format!("installed {}", v));
+                    let _ = proxy.send_event(UserEvent::Updated(v));
+                }
+                if let Some(d) = desk {
+                    if studyhub_update::ver_key(&d) > studyhub_update::ver_key(env!("CARGO_PKG_VERSION")) {
+                        let _ = proxy.send_event(UserEvent::NewApp(d));
+                    }
+                }
             }
-            Ok(None) => {}
             Err(e) => log(&format!("check failed (offline?): {}", e)),
         }
         std::thread::sleep(CHECK_EVERY);
@@ -98,6 +120,12 @@ fn main() {
         })
         .with_navigation_handler(|url| url.starts_with("studyhub://") || url.starts_with("http://studyhub.localhost") || url.starts_with("https://studyhub.localhost"))
         .with_new_window_req_handler(|_url, _features| wry::NewWindowResponse::Deny)
+        .with_initialization_script("window.SH_DESKTOP=true;")
+        .with_ipc_handler(|req| {
+            if req.body() == "open-download" {
+                open_in_browser(DOWNLOAD_PAGE);
+            }
+        })
         .with_devtools(false)
         .with_url(if cfg!(windows) { "http://studyhub.localhost/index.html" } else { "studyhub://localhost/index.html" })
         .build(&window)
@@ -109,6 +137,10 @@ fn main() {
             Event::UserEvent(UserEvent::Updated(v)) => {
                 let v = v.replace(['\'', '\\', '<'], "");
                 let _ = webview.evaluate_script(&format!("{}('{}')", BANNER_JS, v));
+            }
+            Event::UserEvent(UserEvent::NewApp(v)) => {
+                let v = v.replace(['\'', '\\', '<'], "");
+                let _ = webview.evaluate_script(&format!("{}('{}')", APP_BANNER_JS, v));
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             _ => {}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download Study Hub</title>
+<style>
+:root{--bg:#f6f3ee;--card:#fff;--fg:#1d1b18;--muted:#6a645b;--line:#e3ddd2;--accent:#e8731a;--bolt:#1f7fe0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15130f;--card:#1f1c17;--fg:#f1ece3;--muted:#a59d90;--line:#35302a;--accent:#ff8a2a;--bolt:#4aa8ff}}
+:root[data-theme="dark"]{--bg:#15130f;--card:#1f1c17;--fg:#f1ece3;--muted:#a59d90;--line:#35302a;--accent:#ff8a2a;--bolt:#4aa8ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px 16px 60px}
+.eyebrow{color:var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+h1{margin:6px 0 4px;font-size:32px;line-height:1.2}
+.zh{color:var(--muted);display:block;font-size:.92em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:22px}
+.btn{display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px;font-size:17px}
+.btn:hover{filter:brightness(1.08)}
+.meta{color:var(--muted);font-size:14px;margin-top:10px}
+ol{padding-left:22px;margin:8px 0 0}li{margin:6px 0}
+a{color:var(--bolt)}
+code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.9em}
+</style>
+</head>
+<body>
+<main>
+ <div class="eyebrow">Mechatronics Study Hub</div>
+ <h1>Windows app — works offline<span class="zh">Windows 应用——可离线使用</span></h1>
+ <p>Every note, flashcard, quiz, formula, calculator and the PLC Lab, with no internet needed. When you are online it updates itself to the newest notes automatically.<span class="zh">所有笔记、抽认卡、测验、公式、计算器和 PLC 实验室，无需联网即可使用。联网时会自动更新到最新笔记。</span></p>
+
+ <div class="card">
+  <a class="btn" href="MechatronicsStudyHub-Windows.zip" download>⬇ Download for Windows · 下载</a>
+  <div class="meta">App version {{DESKTOP}} · notes version {{CONTENT}} · {{SIZE}} MB · Windows 10 / 11</div>
+ </div>
+
+ <div class="card">
+  <b>Install · 安装</b>
+  <ol>
+   <li>Unzip the download, and keep <code>MechatronicsStudyHub.exe</code> and <code>WebView2Loader.dll</code> together.<span class="zh">解压后，请把这两个文件放在同一个文件夹里。</span></li>
+   <li>Double-click <code>MechatronicsStudyHub.exe</code>.<span class="zh">双击运行。</span></li>
+   <li>If Windows says “Windows protected your PC”, choose <b>More info → Run anyway</b> (the app is not code-signed).<span class="zh">若出现“Windows 已保护你的电脑”，请点“更多信息 → 仍要运行”（应用未做代码签名）。</span></li>
+  </ol>
+ </div>
+
+ <div class="card">
+  <b>Updates · 更新</b>
+  <p style="margin:6px 0 0">Notes and features update by themselves whenever the computer is online (at start-up and every 15 minutes). Each downloaded file is checked against its SHA-256 fingerprint before it is used. If a new version of the app itself comes out, the app shows a “Download” notice.<span class="zh">联网时（启动时及每 15 分钟）笔记和功能会自动更新，每个下载的文件都会先校验 SHA-256 指纹。若应用本身有新版本，应用内会显示“下载”提示。</span></p>
+ </div>
+
+ <p class="meta" style="margin-top:22px">No download needed? Use the website: <a href="../">weiqianw.github.io/studyhub</a> (online only).<span class="zh">不想下载？可直接使用网站（需联网）。</span></p>
+</main>
+</body>
+</html>
