@@ -1,0 +1,7 @@
+<script type="module">
+// Loader only: the application itself is the Rust/WebAssembly module in pkg/.
+import init, { boot } from './pkg/studyhub_web.js';
+{const fl=document.getElementById("gfonts");if(fl){const on=()=>{fl.media="all"};if(fl.sheet)on();else{fl.addEventListener("load",on);setTimeout(on,3000)}}}
+const fail = e => { const a = document.getElementById('app'); a.innerHTML = '<div class="card" style="padding:24px"><h3>Could not start the study hub</h3><p class="muted"></p></div>'; a.querySelector('p').textContent = String(e && e.message || e); };
+init({ module_or_path: './pkg/studyhub_web_bg.wasm' }).then(() => boot(window.SH_CONTENT_URL || './content.json')).catch(fail);
+</script>

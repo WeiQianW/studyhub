@@ -1,0 +1,19 @@
+[package]
+name = "studyhub_web"
+version = "2.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "=0.2.100"
+wasm-bindgen-futures = "0.4.50"
+js-sys = "0.3.77"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = "2"
+
+[dependencies.web-sys]
+version = "0.3.77"
+features = ["Window","Document","Element","HtmlElement","Node","NodeList","Text","TreeWalker","NodeFilter","Event","EventTarget","MouseEvent","KeyboardEvent","PointerEvent","HtmlInputElement","HtmlSelectElement","HtmlTextAreaElement","HtmlDetailsElement","HtmlDialogElement","Storage","Location","History","DomRect","MutationObserver","MutationObserverInit","MutationRecord","Selection","Range","CssStyleDeclaration","DomTokenList","Response","Request","RequestInit","RequestCache","MediaQueryList","Performance","ScrollToOptions","ScrollBehavior","ScrollIntoViewOptions","ScrollLogicalPosition","ResizeObserver","Clipboard","Navigator","HtmlCollection","DocumentFragment","HtmlTemplateElement","AddEventListenerOptions","EventListenerOptions","console","ScrollRestoration","VisibilityState"]
