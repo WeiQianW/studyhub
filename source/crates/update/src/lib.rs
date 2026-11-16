@@ -23,7 +23,13 @@ pub struct Manifest {
     /// Latest version of the Windows app itself (the .exe), for the "new app available" notice.
     #[serde(default)]
     pub desktop: Option<String>,
+    /// The app's own program files for that version (self-update), e.g. `download/app/MechatronicsStudyHub.exe`.
+    #[serde(default)]
+    pub desktop_files: Vec<FileEntry>,
 }
+
+/// Program files the app may replace in its own folder.
+pub const APP_FILES: [&str; 2] = ["MechatronicsStudyHub.exe", "WebView2Loader.dll"];
 
 pub type Bundle = &'static [(&'static str, &'static [u8])];
 
@@ -142,6 +148,75 @@ impl Store {
         }
         let _ = fs::remove_dir_all(&old);
         Ok((Some(m.version), desk))
+    }
+}
+
+impl Store {
+    /// Download the newest app program files into `app-next/`, each verified against the manifest.
+    /// Returns (version, [(file name, staged path)]).
+    pub fn fetch_app(&self, base: &str, allow_http: bool) -> Result<(String, Vec<(String, PathBuf)>), String> {
+        let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(300))).https_only(!allow_http).build().into();
+        let m: Manifest = serde_json::from_slice(&get(&agent, &format!("{}manifest.json", base))?).map_err(|e| format!("manifest: {}", e))?;
+        let ver = m.desktop.clone().ok_or("no app version published")?;
+        if m.desktop_files.is_empty() {
+            return Err("no app files published".into());
+        }
+        let stage = self.dir.join("app-next");
+        let _ = fs::remove_dir_all(&stage);
+        fs::create_dir_all(&stage).map_err(|e| e.to_string())?;
+        let mut out = vec![];
+        for f in &m.desktop_files {
+            let name = f.path.rsplit('/').next().unwrap_or("").to_string();
+            if !safe_rel(&f.path) || !APP_FILES.contains(&name.as_str()) || f.size > MAX_FILE {
+                return Err(format!("{}: not an app file", f.path));
+            }
+            let b = get(&agent, &format!("{}{}", base, f.path))?;
+            if b.len() as u64 != f.size || sha_hex(&b) != f.sha256 {
+                return Err(format!("{}: checksum mismatch", f.path));
+            }
+            let p = stage.join(&name);
+            write(&p, &b)?;
+            out.push((name, p));
+        }
+        Ok((ver, out))
+    }
+}
+
+/// Put staged program files in place next to the running app. Windows lets a running .exe/.dll be
+/// renamed (not overwritten), so each old file is renamed to `*.old` first; on any failure the
+/// originals are restored.
+pub fn install_app(dir: &Path, files: &[(String, PathBuf)]) -> Result<(), String> {
+    let mut done: Vec<(PathBuf, PathBuf)> = vec![];
+    let undo = |done: &Vec<(PathBuf, PathBuf)>| {
+        for (cur, old) in done.iter().rev() {
+            let _ = fs::remove_file(cur);
+            let _ = fs::rename(old, cur);
+        }
+    };
+    for (name, staged) in files {
+        let cur = dir.join(name);
+        let old = dir.join(format!("{}.old", name));
+        let _ = fs::remove_file(&old);
+        if cur.exists() {
+            if let Err(e) = fs::rename(&cur, &old) {
+                undo(&done);
+                return Err(format!("cannot replace {} ({}) — is the app in a protected folder?", name, e));
+            }
+        }
+        done.push((cur.clone(), old.clone()));
+        if fs::rename(staged, &cur).is_err() {
+            if let Err(e) = fs::copy(staged, &cur) {
+                undo(&done);
+                return Err(e.to_string());
+            }
+        }
+    }
+    Ok(())
+}
+/// Remove `*.old` files left by the previous self-update.
+pub fn clean_old(dir: &Path) {
+    for n in APP_FILES {
+        let _ = fs::remove_file(dir.join(format!("{}.old", n)));
     }
 }
 

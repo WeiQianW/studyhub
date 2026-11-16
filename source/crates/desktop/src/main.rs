@@ -57,10 +57,14 @@ fn log(msg: &str) {
 enum UserEvent {
     Updated(String),
     NewApp(String),
+    AppStatus(String),
+    AppFailed(String),
+    AppReady,
 }
 
 const DOWNLOAD_PAGE: &str = "https://weiqianw.github.io/studyhub/download/";
-const APP_BANNER_JS: &str = r#"(function(v){if(document.getElementById('shApp'))return;var b=document.createElement('div');b.id='shApp';b.style.cssText='position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:99999;background:var(--card,#222);color:var(--fg,#fff);border:1px solid var(--bolt,#3aa0ff);border-radius:12px;padding:10px 14px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:14px system-ui;display:flex;gap:12px;align-items:center';var s=document.createElement('span');s.textContent='New app version '+v+' available · 有新版本应用';var r=document.createElement('button');r.textContent='Download · 下载';r.className='btn sm';r.onclick=function(){window.ipc.postMessage('open-download')};var x=document.createElement('button');x.textContent='✕';x.className='chipbtn';x.onclick=function(){b.remove()};b.appendChild(s);b.appendChild(r);b.appendChild(x);document.body.appendChild(b);})"#;
+const APP_BANNER_JS: &str = r#"(function(v){if(document.getElementById('shApp'))return;var b=document.createElement('div');b.id='shApp';b.style.cssText='position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:99999;background:var(--card,#222);color:var(--fg,#fff);border:1px solid var(--bolt,#3aa0ff);border-radius:12px;padding:10px 14px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:14px system-ui;display:flex;gap:12px;align-items:center;max-width:92vw';var s=document.createElement('span');s.id='shAppMsg';s.textContent='New app version '+v+' available · 有新版本应用';var r=document.createElement('button');r.id='shAppGo';r.textContent='Update now · 立即更新';r.className='btn sm';r.onclick=function(){r.disabled=true;x.hidden=true;s.textContent='Downloading update… · 正在下载更新…';window.ipc.postMessage('update-app')};var x=document.createElement('button');x.textContent='Later · 稍后';x.className='chipbtn';x.onclick=function(){b.remove()};b.appendChild(s);b.appendChild(r);b.appendChild(x);document.body.appendChild(b);})"#;
+const APP_STATUS_JS: &str = r#"(function(t,fail){var s=document.getElementById('shAppMsg');if(s)s.textContent=t;var r=document.getElementById('shAppGo');if(r&&fail){r.disabled=false;r.textContent='Open download page · 打开下载页';r.onclick=function(){window.ipc.postMessage('open-download')}}})"#;
 
 fn open_in_browser(url: &str) {
     #[cfg(windows)]
@@ -76,10 +80,40 @@ fn open_in_browser(url: &str) {
 
 const BANNER_JS: &str = r#"(function(v){var b=document.getElementById('shUpd');if(!b){b=document.createElement('div');b.id='shUpd';b.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:var(--card,#222);color:var(--fg,#fff);border:1px solid var(--accent,#f80);border-radius:12px;padding:10px 14px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:14px system-ui;display:flex;gap:12px;align-items:center';document.body.appendChild(b);}b.textContent='';var s=document.createElement('span');s.textContent='Update '+v+' downloaded · 新版本已下载';var r=document.createElement('button');r.textContent='Reload · 重新载入';r.className='btn sm';r.onclick=function(){location.reload()};b.appendChild(s);b.appendChild(r);})"#;
 
+fn app_dir() -> Option<PathBuf> {
+    std::env::current_exe().ok()?.parent().map(|p| p.to_path_buf())
+}
+
+/// Download, verify and swap in the new program files, then ask the event loop to restart.
+fn self_update(proxy: tao::event_loop::EventLoopProxy<UserEvent>) {
+    std::thread::spawn(move || {
+        let r = (|| -> Result<String, String> {
+            let (v, files) = store().fetch_app(&update_url(), false)?;
+            let _ = proxy.send_event(UserEvent::AppStatus(format!("Installing {} … · 正在安装…", v)));
+            studyhub_update::install_app(&app_dir().ok_or("app folder unknown")?, &files)?;
+            Ok(v)
+        })();
+        match r {
+            Ok(v) => {
+                log(&format!("app updated to {}", v));
+                let _ = proxy.send_event(UserEvent::AppReady);
+            }
+            Err(e) => {
+                log(&format!("app update failed: {}", e));
+                let _ = proxy.send_event(UserEvent::AppFailed(e));
+            }
+        }
+    });
+}
+
 fn main() {
     let _ = fs::create_dir_all(data_dir());
+    if let Some(d) = app_dir() {
+        studyhub_update::clean_old(&d);
+    }
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy = event_loop.create_proxy();
+    let ipc_proxy = event_loop.create_proxy();
     std::thread::spawn(move || loop {
         match store().check_full(&update_url(), false) {
             Ok((installed, desk)) => {
@@ -121,10 +155,10 @@ fn main() {
         .with_navigation_handler(|url| url.starts_with("studyhub://") || url.starts_with("http://studyhub.localhost") || url.starts_with("https://studyhub.localhost"))
         .with_new_window_req_handler(|_url, _features| wry::NewWindowResponse::Deny)
         .with_initialization_script("window.SH_DESKTOP=true;")
-        .with_ipc_handler(|req| {
-            if req.body() == "open-download" {
-                open_in_browser(DOWNLOAD_PAGE);
-            }
+        .with_ipc_handler(move |req| match req.body().as_str() {
+            "open-download" => open_in_browser(DOWNLOAD_PAGE),
+            "update-app" => self_update(ipc_proxy.clone()),
+            _ => {}
         })
         .with_devtools(false)
         .with_url(if cfg!(windows) { "http://studyhub.localhost/index.html" } else { "studyhub://localhost/index.html" })
@@ -141,6 +175,21 @@ fn main() {
             Event::UserEvent(UserEvent::NewApp(v)) => {
                 let v = v.replace(['\'', '\\', '<'], "");
                 let _ = webview.evaluate_script(&format!("{}('{}')", APP_BANNER_JS, v));
+            }
+            Event::UserEvent(UserEvent::AppStatus(t)) => {
+                let t = t.replace(['\'', '\\', '<'], "");
+                let _ = webview.evaluate_script(&format!("{}('{}',false)", APP_STATUS_JS, t));
+            }
+            Event::UserEvent(UserEvent::AppFailed(e)) => {
+                let e = e.replace(['\'', '\\', '<', '\n', '\r'], " ");
+                let _ = webview.evaluate_script(&format!("{}('Update failed: {} · 更新失败',true)", APP_STATUS_JS, e));
+            }
+            Event::UserEvent(UserEvent::AppReady) => {
+                // start the new copy, then close this one
+                if let Ok(exe) = std::env::current_exe() {
+                    let _ = std::process::Command::new(exe).spawn();
+                }
+                *control_flow = ControlFlow::Exit;
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             _ => {}

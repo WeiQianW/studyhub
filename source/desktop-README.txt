@@ -17,6 +17,10 @@ Updates
   "Reload"; otherwise the update is used the next time you open the app. If you are offline,
   nothing happens and the app keeps using the version it has.
 
+  When a new version of the app program itself is out, a notice offers "Update now": the app
+  downloads the new .exe, checks its SHA-256 fingerprint, swaps it in and restarts — no
+  reinstalling. (Keep the app in a folder you can write to, e.g. Documents, not Program Files.)
+
   Update address: https://weiqianw.github.io/studyhub/
   To use a different address, put it (https:// only) in a file named update-url.txt in
   %LOCALAPPDATA%\MechatronicsStudyHub

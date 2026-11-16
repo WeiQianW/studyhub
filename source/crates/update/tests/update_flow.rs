@@ -69,3 +69,38 @@ fn update_lifecycle() {
     assert!(st.check(&base, true).is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn app_self_update() {
+    let idx: &'static [u8] = b"<p>v1</p>";
+    let m1: &'static [u8] = Box::leak(manifest("2026.11.16-1", &[("index.html", idx)]).into_boxed_slice());
+    let bundle: Bundle = Box::leak(vec![("index.html", idx), ("manifest.json", m1)].into_boxed_slice());
+    let dir = std::env::temp_dir().join(format!("shapp-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let appdir = dir.join("app");
+    std::fs::create_dir_all(&appdir).unwrap();
+    std::fs::write(appdir.join("MechatronicsStudyHub.exe"), b"OLD").unwrap();
+    let st = Store { dir: dir.join("data"), bundle };
+    let newexe = b"NEW-EXE".to_vec();
+    let files = Arc::new(Mutex::new(HashMap::new()));
+    let base = server(files.clone());
+    let man = |exe_sha: String, path: &str| serde_json::to_vec(&serde_json::json!({"app":"studyhub","version":"2026.11.16-1","desktop":"2.0.1",
+        "desktop_files":[{"path":path,"sha256":exe_sha,"size":newexe.len()}],"files":[]})).unwrap();
+    files.lock().unwrap().insert("download/app/MechatronicsStudyHub.exe".into(), newexe.clone());
+    // wrong checksum → refused
+    files.lock().unwrap().insert("manifest.json".into(), man("00".repeat(32), "download/app/MechatronicsStudyHub.exe"));
+    assert!(st.fetch_app(&base, true).is_err());
+    // a file that is not one of the app's own files → refused
+    files.lock().unwrap().insert("manifest.json".into(), man(sha_hex(&newexe), "download/app/evil.exe"));
+    assert!(st.fetch_app(&base, true).is_err());
+    // correct → staged, installed, old copy kept as .old then cleaned
+    files.lock().unwrap().insert("manifest.json".into(), man(sha_hex(&newexe), "download/app/MechatronicsStudyHub.exe"));
+    let (v, staged) = st.fetch_app(&base, true).unwrap();
+    assert_eq!(v, "2.0.1");
+    install_app(&appdir, &staged).unwrap();
+    assert_eq!(std::fs::read(appdir.join("MechatronicsStudyHub.exe")).unwrap(), newexe);
+    assert_eq!(std::fs::read(appdir.join("MechatronicsStudyHub.exe.old")).unwrap(), b"OLD");
+    clean_old(&appdir);
+    assert!(!appdir.join("MechatronicsStudyHub.exe.old").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
