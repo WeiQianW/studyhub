@@ -1,12 +1,12 @@
 {
  "app": "studyhub",
- "version": "2026.11.16-2",
+ "version": "2026.11.18-1",
  "desktop": "2.0.1",
  "files": [
   {
    "path": "content.json",
-   "sha256": "8613d93c0f0bf1d1940f215ad48dea3dc4fa50f2a2d20d2c9ddf18dadf62c45a",
-   "size": 6258558
+   "sha256": "9a747c68c2e61977530c6bfb4843c09a6a6cc621b3fc1ef07133f4c1d113b53b",
+   "size": 6287518
   },
   {
    "path": "index.html",
@@ -27,8 +27,8 @@
  "desktop_files": [
   {
    "path": "download/app/MechatronicsStudyHub.exe",
-   "sha256": "b54a5d77c690f16afc82cde1d07ccdb6ebd723e2b851b51a8e0460cd0189f96a",
-   "size": 9042432
+   "sha256": "ead535b624a483878a0a8090ad26f1f1c4bd6700fe00ba2fd46570f80b046d69",
+   "size": 9071104
   }
  ]
 }
